@@ -1,0 +1,152 @@
+name: Build
+
+on: [pull_request, push]
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-18.04
+    strategy:
+      matrix:
+        node-version: [12.x]
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v2
+
+      - name: Install Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Setup node modules cache
+        uses: actions/cache@v1
+        with:
+          path: node_modules
+          key: ${{ runner.OS }}-node${{ matrix.node-version }}-build-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.OS }}-node${{ matrix.node-version }}-build-${{ env.cache-name }}-
+            ${{ runner.OS }}-node${{ matrix.node-version }}-build-
+            ${{ runner.OS }}-node${{ matrix.node-version }}-
+
+      - name: Install node modules
+        run: |
+          mv .npmrc .npmrc.bak
+          echo '//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}' > .npmrc
+          cat .npmrc.bak >> .npmrc
+          npm install
+
+      - name: Run tests
+        run: npm test
+
+  release:
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    name: Build & Release
+    runs-on: ubuntu-18.04
+    needs: test
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v2
+
+      - name: Install Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Setup node modules cache
+        uses: actions/cache@v1
+        with:
+          path: node_modules
+          key: ${{ runner.OS }}-node${{ matrix.node-version }}-build-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.OS }}-node${{ matrix.node-version }}-build-${{ env.cache-name }}-
+            ${{ runner.OS }}-node${{ matrix.node-version }}-build-
+            ${{ runner.OS }}-node${{ matrix.node-version }}-
+
+      - name: Install node modules
+        run: |
+          mv .npmrc .npmrc.bak
+          echo '//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}' > .npmrc
+          cat .npmrc.bak >> .npmrc
+          npm install
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euxo pipefail
+
+          next_version () {
+            local current
+            local impact
+            local MAJOR
+            local MINOR
+            local PATCH
+            local parts
+            impact="$1"
+            if [ -z "$1" ]
+            then
+              impact="patch"
+            fi
+            current=$(git tag | sort -r | grep "^[0-9]*\.[0-9]*\.[0-9]" | sort -t "." -k1,1nr -k2,2nr -k3,3nr | head -1 2> /dev/null) || true
+            if [[ -z "$current" ]]; then
+              current='0.0.0'
+            fi
+            parts=(${current//./ })
+            MAJOR=${parts[0]}
+            MINOR=${parts[1]}
+            PATCH=${parts[2]}
+            case "$impact" in
+              major)
+                ((MAJOR+=1))
+                ;;
+              minor)
+                ((MINOR+=1))
+                ;;
+              patch)
+                ((PATCH+=1))
+                ;;
+            esac
+            echo "$MAJOR.$MINOR.$PATCH"
+          }
+          tag_and_release () {
+            local commit
+            commit=$(git rev-parse HEAD)
+            local next
+            if [[ -z "$(git describe --contains "$commit" 2>/dev/null)" ]]; then
+              next="$(next_version "$1")"
+              npm version "$next"
+              npm publish
+              git tag "$next"
+              git config user.name github-actions
+              git config user.email github-actions@github.com
+              git push --tags
+              echo "RELEASE_TAG=$next" >> $GITHUB_ENV
+            fi
+          }
+
+          mkdir .release
+
+          cp -R bin.js lib README.md package.json .release
+
+          cat package.json | \
+            jq 'del(.devDependencies, .scripts, .private)' | \
+            jq '. + { "publishConfig": { "registry":"https://npm.pkg.github.com/" } }' \
+            > .release/package.json
+
+          cd .release
+
+          touch .npmrc
+          echo "//npm.pkg.github.com/:_authToken=$GITHUB_TOKEN" > .npmrc
+
+          git fetch --all --tags
+
+          tag_and_release patch
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: output
+          path: output/**/*

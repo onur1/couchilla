@@ -1,0 +1,4 @@
+.vscode
+/etc/docker.ini
+/data
+/.release
