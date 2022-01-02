@@ -7,7 +7,7 @@ couchdb survival kit.
 Install `couchilla` globally with
 
 ```
-npm i couchilla -g
+npm install @onur1/couchilla -g
 ```
 
 ## Usage
