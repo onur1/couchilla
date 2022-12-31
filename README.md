@@ -2,6 +2,8 @@
 
 couchilla is a bundler for packing design documents for CouchDB.
 
+https://github.com/onur1/couchilla/issues
+
 ## Install
 
 Install `couchilla` globally with:
