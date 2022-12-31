@@ -1,10 +1,10 @@
 # couchilla
 
-couchdb survival kit.
+couchilla is a bundler for packing design documents for CouchDB.
 
 ## Install
 
-Install `couchilla` globally with
+Install `couchilla` globally with:
 
 ```
 npm install @onur1/couchilla -g
@@ -12,7 +12,7 @@ npm install @onur1/couchilla -g
 
 ## Usage
 
-Use `couchilla` to compile CouchDB design documents from a project directory.
+Use `couchilla` to bundle a CouchDB [design document](https://docs.couchdb.org/en/stable/ddocs/ddocs.html) from a directory of JavaScript files.
 
 An example directory structure looks like this:
 
@@ -26,7 +26,7 @@ An example directory structure looks like this:
 └── validate_doc_update.js
 ```
 
-If you navigate to the [example](./example) and run `couchilla .` in this folder, this will print out a [design document](https://docs.couchdb.org/en/stable/ddocs/ddocs.html) (compatible with `3.x`) with the contents of your folder.
+If you navigate to the [example](./example) and run `couchilla .` in this folder, this will print out a design document (compatible with `3.x`) with the contents of your folder.
 
 ## Function formats
 
@@ -38,9 +38,9 @@ Files that contain view functions are located in the `views` folder.
 
 #### Map functions
 
-Files whose names end with `.map.js` or only `.js` are transpiled into map functions.
+Files whose names end with `.map.js` or only `.js` are transformed into map functions.
 
-Example:
+##### Example:
 
 Simply `emit` the document ID and optionally a value.
 
@@ -54,9 +54,9 @@ export default doc => emit(doc._id, 42)
 
 #### Reduce functions
 
-Files whose names end with `.reduce.js` are transpiled into reduce functions.
+Files whose names end with `.reduce.js` are transformed into reduce functions.
 
-Example:
+##### Example:
 
 Take sum of mapped values:
 
@@ -78,7 +78,7 @@ export default (keys, values, rereduce) => {
 
 Files that contain filter functions are located in the `filters` folder.
 
-Example:
+##### Example:
 
 Filter by field:
 
@@ -123,4 +123,4 @@ During compilation this will be replaced with a call to the builtin `_sum` funct
 
 ## Requiring other modules
 
-Everything should be inside the exported default function, including your `require` calls. `couchilla` can require nodeJS modules as well.
+All code should be inside the exported default function, including your `require()` calls. `couchilla` can require node modules.
